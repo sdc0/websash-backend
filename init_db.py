@@ -7,17 +7,6 @@ db = sql.connect(path + "/badges.db")
 cur = db.cursor()
 
 cur.execute("""
-CREATE TABLE IF NOT EXISTS badge (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name VARCHAR(256),
-    abbr VARCHAR(8) UNIQUE,
-    desc VARCHAR(1024),
-    req VARCHAR(1024),
-    image VARCHAR(1024),
-    type VARCHAR(256)
-)""")
-
-cur.execute("""
 CREATE TABLE IF NOT EXISTS student (
     id INTEGER PRIMARY KEY,
     name VARCHAR(128),
@@ -34,6 +23,20 @@ CREATE TABLE IF NOT EXISTS issuer (
     email VARCHAR(128) UNIQUE,
     password VARCHAR(128),
     salt VARCHAR(32)
+)""")
+
+cur.execute("""
+CREATE TABLE IF NOT EXISTS badge (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(256),
+    abbr VARCHAR(8) UNIQUE,
+    desc VARCHAR(1024),
+    short VARCHAR(512),
+    req VARCHAR(1024),
+    image VARCHAR(256),
+    type VARCHAR(256),
+    creator INTEGER,
+    FOREIGN KEY (creator) REFERENCES issuer(id)
 )""")
 
 cur.execute("""

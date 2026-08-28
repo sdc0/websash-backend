@@ -214,13 +214,10 @@ def verify():
 def get_badges():
     res = query("SELECT * FROM badge")
 
-    temp = []
-    for obj in res:
-        t = obj
+    for t in res:
         if t["image"] != None and os.path.exists(t["image"]):
             with open(t["image"], "rb") as f:
                 t["image"] = base64.b64encode(f.read()).decode('utf-8')
-        temp.append(t)
 
     return jsonify(res)
 
@@ -234,19 +231,40 @@ def get_badge(ident):
 
     return jsonify(res)
 
+@app.route("/badge/issuer", methods=['POST'])
+@token_required
+def get_badges_from_issuer():
+    print(g.current_user["data"]["id"])
+    res = query("SELECT * FROM badge WHERE creator=-1 OR creator=?", [g.current_user["data"]["id"]])
+    print(res)
+
+    for t in res:
+        if t["image"] != None and os.path.exists(t["image"]):
+            with open(t["image"], "rb") as f:
+                t["image"] = base64.b64encode(f.read()).decode('utf-8')
+
+    return jsonify(res), 200
+
 @app.route("/badge/update/<int:ident>", methods=['POST'])
 @token_required
 def update_badge(ident):
     # requires update permissions on badge
-    if "u" not in fetch_permissions(g.current_user)["badge"]:
+    #if "u" not in fetch_permissions(g.current_user)["badge"]:
+    #    return jsonify({"error": "Insufficient permissions to update badge"}), 400
+
+    toUpdate = query("SELECT * FROM badge WHERE id=?", [ident], True)
+    if toUpdate["creator"] != -1 and toUpdate["Creator"] != g.current_user["data"]["id"]:
         return jsonify({"error": "Insufficient permissions to update badge"}), 400
 
-    params = parse_params(["name", "abbr", "type", "image", "desc", "req"], False)
+    params = parse_params(["name", "abbr", "type", "image", "desc", "short", "req", "creator"], False)
     if params is None:
         return jsonify({"error": "Failed to fetch all parameters from URL"}), 400
 
     for k, v in params.items():
         if v is not None:
+            if k == "creator":
+                print(params[k])
+                continue
             if k == "image":
                 if ',' in params["image"]:
                     current = query("SELECT * FROM badge WHERE id=?", [ident], True);
@@ -271,11 +289,11 @@ def update_badge(ident):
 @token_required
 def insert_badge():
     # requires create permissions on badge
-    if "c" not in fetch_permissions(g.current_user)["badge"]:
-        return jsonify({"error": "Insufficient permissions to create badge"}), 400
+    #if "c" not in fetch_permissions(g.current_user)["badge"]:
+    #    return jsonify({"error": "Insufficient permissions to create badge"}), 400
 
     # requires create permissions on badge
-    params = parse_params(["name", "abbr", "type", "image", "desc", "req"])
+    params = parse_params(["name", "abbr", "type", "image", "desc", "short", "req", "creator"])
     if params is None:
         return jsonify({"error": "Failed to fetch all parameters from URL"}), 400
 
@@ -288,7 +306,7 @@ def insert_badge():
         with open(f"{images_path}/{params['abbr']}.{ext}", "wb") as f:
             f.write(img)
 
-    res = query("INSERT INTO badge (name, abbr, type, image, desc, req) VALUES (?, ?, ?, ?, ?, ?)", [params["name"], params["abbr"], params["type"], f"{images_path}/{params['abbr']}.{ext}", params["desc"], params["req"]])
+    res = query("INSERT INTO badge (name, abbr, type, image, desc, short, req, creator) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", [params["name"], params["abbr"], params["type"], f"{images_path}/{params['abbr']}.{ext}", params["desc"], params["short"], params["req"], params["creator"]])
     
     return jsonify({"msg": f"Successfully inserted {params["name"]} into badges table"}), 200
 
@@ -296,14 +314,18 @@ def insert_badge():
 @token_required
 def delete_badge():
     # requires delete permissions on badge
-    if "d" not in fetch_permissions(g.current_user)["badge"]:
-        return jsonify({"error": "Insufficient permissions to delete badge"}), 400
+    #if "d" not in fetch_permissions(g.current_user)["badge"]:
+    #    return jsonify({"error": "Insufficient permissions to delete badge"}), 400
 
     params = parse_params(["id"])
     if params is None:
         return jsonify({"error": "Failed to fetch all parameters from URL"}), 400
     
-    toDelete = query("SELECT (image) FROM badge WHERE id=?", [params["id"]], True)
+    toDelete = query("SELECT * FROM badge WHERE id=?", [params["id"]], True)
+    
+    if toDelete["creator"] != g.current_user["data"]["id"] and toDelete["creator"] != -1:
+        return jsonify({"error": "Insufficient permissions to delete badge"}), 400
+
     os.remove(toDelete["image"])
     res = query("DELETE FROM badge WHERE id=?", [params["id"]])
 
@@ -314,7 +336,10 @@ def delete_badge():
 @token_required
 def get_students():
     # requires read permissions on student
-    if "r" not in fetch_permissions(g.current_user)["student"]:
+    #if "r" not in fetch_permissions(g.current_user)["student"]:
+    #    return jsonify({"error": "Insufficient permissions to read student"}), 400
+
+    if g.current_user["type"] != "issuer":
         return jsonify({"error": "Insufficient permissions to read student"}), 400
 
     res = query("SELECT * FROM student")
@@ -323,9 +348,12 @@ def get_students():
 @app.route("/student/<int:ident>", methods=["POST"])
 def get_student(ident):
     # requires read permission on student
-    if "r" not in fetch_permissions(g.current_user)["student"]:
-        return jsonify({"error": "Insufficient permissions to read student"}), 400
+    #if "r" not in fetch_permissions(g.current_user)["student"]:
+    #    return jsonify({"error": "Insufficient permissions to read student"}), 400
     
+    if g.current_user["type"] != "issuer":
+        return jsonify({"error": "Insufficient permissions to read student"}), 400
+
     res = query(f"SELECT * FROM student WHERE student.id=?", [ident], True)
     return jsonify(res), 200
 
@@ -377,13 +405,22 @@ def delete_student():
     return jsonify({"msg": f"Successfully deleted {params["id"]} from student table"}), 200
 
 @app.route("/student/salt", methods=["POST"])
+def get_student_salt():
+    params = parse_params(["email"])
+    if params is None:
+        return jsonify({"error": "failed to fetch all parameters from URL"}), 400
+
+    res = query("SELECT (salt) FROM student WHERE email=?", [params["email"]], True)
+
+    return jsonify(res), 200
 
 # issuer CRUD operations
 @app.route("/issuer", methods=["POST"])
 @token_required
 def get_issuers():
     # requires read permissions on issuer
-    if "r" not in fetch_permissions(g.current_user)["issuer"]:
+    #if "r" not in fetch_permissions(g.current_user)["issuer"]:
+    if g.current_user["type"] != "issuer":
         return jsonify({"error": "Insufficient permissions to read issuer"}), 400
 
     res = query("SELECT * FROM issuer")
@@ -393,7 +430,8 @@ def get_issuers():
 @token_required
 def get_issuer(ident):
     # requires read permissions on issuer
-    if "r" not in fetch_permissions(g.current_user)["issuer"]:
+    #if "r" not in fetch_permissions(g.current_user)["issuer"]:
+    if g.current_user["type"] != "issuer":
         return jsonify({"error": "Insufficient pertmissions to read issuer"}), 400
 
     if request.method == "GET":
@@ -462,10 +500,15 @@ def get_issuer_salt():
 @token_required
 def get_issuances_from_student(ident):
     # requires read permissions on issuance
-    if g.current_user["type"] != "student" and "r" not in fetch_permissions(g.current_user["data"])["issuance"]:
-        return jsonify({"error": "Insufficient permissions to read issuances"}), 400
+    #if g.current_user["type"] != "student" and "r" not in fetch_permissions(g.current_user["data"])["issuance"]:
+    #    return jsonify({"error": "Insufficient permissions to read issuances"}), 400
 
-    res = query("SELECT badge.id as 'badge_id', badge.name as 'badge_name', badge.abbr, badge.desc, badge.req, badge.image, badge.type, student.id as 'student_id', student.name as 'student_name', issuance.date FROM badge JOIN issuance ON issuance.badge=badge.id JOIN student ON issuance.student=student.id WHERE student.id=?", [ident], one=False)
+    if g.current_user["type"] == "student":
+        res = query("SELECT badge.id as 'badge_id', badge.name as 'badge_name', badge.abbr, badge.desc, badge.req, badge.image, badge.type, student.id as 'student_id', student.name as 'student_name', issuance.date FROM badge JOIN issuance ON issuance.badge=badge.id JOIN student ON issuance.student=student.id WHERE student.id=?", [ident], one=False)
+    else:
+        res = query("SELECT badge.id as 'badge_id', badge.name as 'badge_name', badge.abbr, badge.desc, badge.req, badge.image, badge.type, student.id as 'student_id', student.name as 'student_name', issuance.date FROM badge JOIN issuance ON issuance.badge=badge.id JOIN student ON issuance.student=student.id WHERE student.id=? AND issuance.issuer=?", [ident, g.current_user["data"]["id"]], one=False)
+    print(res)
+
     if res is None:
         return jsonify({"error": "Failed to fetch any issuances"}), 400
 
@@ -482,11 +525,15 @@ def get_issuances_from_student(ident):
 @app.route("/badge/issue", methods=["POST"])
 @token_required
 def get_issuances():
-    if "r" not in fetch_permissions(g.current_user)["issuance"]:
+    #if "r" not in fetch_permissions(g.current_user)["issuance"]:
+    if g.current_user["type"] != "issuer":
         return jsonify({"error": "Insufficient permissions to get issuance"}), 400
-
-    res = query("SELECT * FROM issuance")
     
+    if "r" in fetch_permissions(g.current_user)["issuance"]:
+        res = query("SELECT * FROM issuance")
+    else:
+        res = query("SELECT * FROM issuance WHERE issuer=?", [g.current_user["data"]["id"]])
+
     return jsonify(res), 200
 
 @app.route("/badge/issue/add", methods=["POST"])
