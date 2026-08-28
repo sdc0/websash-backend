@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS issuance (
     student INTEGER,
     issuer INTEGER,
     date DATETIME,
-    PRIMARY KEY (badge, student, issuer),
+    PRIMARY KEY (badge, student),
     FOREIGN KEY (badge) REFERENCES badge(id),
     FOREIGN KEY (student) REFERENCES student(id),
     FOREIGN KEY (issuer) REFERENCES issuer(id)
