@@ -1,5 +1,6 @@
 images/
 *.json
 *.txt
+!requirements.txt
 *.db
 
