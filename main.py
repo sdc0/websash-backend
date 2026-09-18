@@ -22,15 +22,15 @@ images_path = path + "/images"
 #       "student": <student_permissions>,
 #       "issuance": <issuance_permissions>,
 #       "users": [
-#           <user_key>,
+#           <user_id>, 
 #           ...
 #       ]
 #   }
 #
-# permissions string represented as combo of "rwcd" characters, each giving permissions accordingly:
-#   r -> read access
-#   w -> write access
+# permissions string represented as combo of "crud" characters, each giving permissions accordingly:
 #   c -> create access
+#   r -> read access
+#   u -> update access
 #   d -> delete access
 def fetch_permissions(user):
     with open(permissions_file, 'r') as f:
@@ -456,7 +456,7 @@ def update_issuer(ident):
     return jsonify({"msg": f"Successfully updated issuer {ident} with passed params"}), 200
 
 @app.route("/issuer/add", methods=["POST"])
-#@token_required
+@token_required
 def insert_issuer():
     # requires create permissions on issuer
     #if "c" not in fetch_permissions(g.current_user)["issuer"]:
