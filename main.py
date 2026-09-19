@@ -110,7 +110,7 @@ def close_connection(exception):
     if db is not None:
         db.close()
 
-@app.route("/", methods=['GET'])
+@app.route("/api", methods=['GET'])
 def api_info():
     return jsonify({
         "version": "1.0",
@@ -145,7 +145,7 @@ def api_info():
     })
 
 # login stuff to return user key
-@app.route("/login/issuer", methods=['POST'])
+@app.route("/api/login/issuer", methods=['POST'])
 def login_issuer():
     auth = request.authorization
     if not auth:
@@ -160,7 +160,7 @@ def login_issuer():
 
     return jsonify({"msg": "Successful login", "token": token, "id": ident}), 200
 
-@app.route("/login/student", methods=["POST"])
+@app.route("/api/login/student", methods=["POST"])
 def login_student():
     auth = request.authorization
     if not auth:
@@ -204,13 +204,13 @@ def token_required(f):
     decorated.__name__ = f.__name__
     return decorated
 
-@app.route("/verify", methods=['POST'])
+@app.route("/api/verify", methods=['POST'])
 @token_required
 def verify():
     return jsonify({"msg": f"valid token for {g.current_user}"}), 200
 
 # badge CRUD operations
-@app.route("/badge", methods=['GET'])
+@app.route("/api/badge", methods=['GET'])
 def get_badges():
     res = query("SELECT * FROM badge")
 
@@ -221,7 +221,7 @@ def get_badges():
 
     return jsonify(res)
 
-@app.route("/badge/<int:ident>", methods=['GET'])
+@app.route("/api/badge/<int:ident>", methods=['GET'])
 def get_badge(ident):
     res = query("SELECT * FROM badge WHERE id=?", [ident], one=True)
 
@@ -231,7 +231,7 @@ def get_badge(ident):
 
     return jsonify(res)
 
-@app.route("/badge/issuer", methods=['POST'])
+@app.route("/api/badge/issuer", methods=['POST'])
 @token_required
 def get_badges_from_issuer():
     print(g.current_user["data"]["id"])
@@ -245,7 +245,7 @@ def get_badges_from_issuer():
 
     return jsonify(res), 200
 
-@app.route("/badge/update/<int:ident>", methods=['POST'])
+@app.route("/api/badge/update/<int:ident>", methods=['POST'])
 @token_required
 def update_badge(ident):
     # requires update permissions on badge
@@ -285,7 +285,7 @@ def update_badge(ident):
     return jsonify({"msg": f"Successfully updated badge {ident} with passed params"}), 200
 
 
-@app.route("/badge/add", methods=['POST'])
+@app.route("/api/badge/add", methods=['POST'])
 @token_required
 def insert_badge():
     # requires create permissions on badge
@@ -310,7 +310,7 @@ def insert_badge():
     
     return jsonify({"msg": f"Successfully inserted {params["name"]} into badges table"}), 200
 
-@app.route("/badge/delete", methods=['POST'])
+@app.route("/api/badge/delete", methods=['POST'])
 @token_required
 def delete_badge():
     # requires delete permissions on badge
@@ -332,7 +332,7 @@ def delete_badge():
     return jsonify({"msg": f"Successfully deleted badge {params["id"]} from badges table"}), 200
 
 # student CRUD operations
-@app.route("/student", methods=["POST"])
+@app.route("/api/student", methods=["POST"])
 @token_required
 def get_students():
     # requires read permissions on student
@@ -345,7 +345,7 @@ def get_students():
     res = query("SELECT * FROM student")
     return jsonify(res), 200
 
-@app.route("/student/<int:ident>", methods=["POST"])
+@app.route("/api/student/<int:ident>", methods=["POST"])
 def get_student(ident):
     # requires read permission on student
     #if "r" not in fetch_permissions(g.current_user)["student"]:
@@ -357,7 +357,7 @@ def get_student(ident):
     res = query(f"SELECT * FROM student WHERE student.id=?", [ident], True)
     return jsonify(res), 200
 
-@app.route("/student/update/<int:ident>", methods=["POST"])
+@app.route("/api/student/update/<int:ident>", methods=["POST"])
 @token_required
 def update_student(ident):
     # requires update permissions on student
@@ -374,7 +374,7 @@ def update_student(ident):
 
     return jsonify({"msg": f"Successfully updated student {ident} with passed params"})
 
-@app.route("/student/add", methods=["POST"])
+@app.route("/api/student/add", methods=["POST"])
 @token_required
 def insert_student():
     # requires crteate permissions on student
@@ -389,7 +389,7 @@ def insert_student():
 
     return jsonify({"msg": f"Successfully inserted {params["name"]} into student table"}), 200
 
-@app.route("/student/delete", methods=["POST"])
+@app.route("/api/student/delete", methods=["POST"])
 @token_required
 def delete_student():
     # requires delete permissions on student
@@ -404,7 +404,7 @@ def delete_student():
 
     return jsonify({"msg": f"Successfully deleted {params["id"]} from student table"}), 200
 
-@app.route("/student/salt", methods=["POST"])
+@app.route("/api/student/salt", methods=["POST"])
 def get_student_salt():
     params = parse_params(["email"])
     if params is None:
@@ -415,7 +415,7 @@ def get_student_salt():
     return jsonify(res), 200
 
 # issuer CRUD operations
-@app.route("/issuer", methods=["POST"])
+@app.route("/api/issuer", methods=["POST"])
 @token_required
 def get_issuers():
     # requires read permissions on issuer
@@ -426,7 +426,7 @@ def get_issuers():
     res = query("SELECT * FROM issuer")
     return jsonify(res), 200
 
-@app.route("/issuer/<int:ident>", methods=["POST"])
+@app.route("/api/issuer/<int:ident>", methods=["POST"])
 @token_required
 def get_issuer(ident):
     # requires read permissions on issuer
@@ -438,7 +438,7 @@ def get_issuer(ident):
         res = query(f"SELECT * FROM issuer WHERE id=?", [ident], True)
         return jsonify(res), 200
 
-@app.route("/issuer/update/<int:ident>", methods=["POST"])
+@app.route("/api/issuer/update/<int:ident>", methods=["POST"])
 @token_required
 def update_issuer(ident):
     # requires update permissons on issuer
@@ -455,7 +455,7 @@ def update_issuer(ident):
 
     return jsonify({"msg": f"Successfully updated issuer {ident} with passed params"}), 200
 
-@app.route("/issuer/add", methods=["POST"])
+@app.route("/api/issuer/add", methods=["POST"])
 @token_required
 def insert_issuer():
     # requires create permissions on issuer
@@ -470,7 +470,7 @@ def insert_issuer():
 
     return jsonify({"msg": f"Successfully inserted {params["name"]} into issuer table"}), 200
 
-@app.route("/issuer/delete", methods=["POST"])
+@app.route("/api/issuer/delete", methods=["POST"])
 @token_required
 def delete_issuer():
     # requires delete permissions on issuer
@@ -485,7 +485,7 @@ def delete_issuer():
 
     return jsonify({"msg": f"Successfully deleted {params["id"]} from issuer table"}), 200
 
-@app.route("/issuer/salt", methods=["POST"])
+@app.route("/api/issuer/salt", methods=["POST"])
 def get_issuer_salt():
     params = parse_params(["email"])
     if params is None:
@@ -496,7 +496,7 @@ def get_issuer_salt():
     return jsonify(res), 200
 
 # issuance CRUD operations
-@app.route("/student/<int:ident>/badges", methods=["POST"])
+@app.route("/api/student/<int:ident>/badges", methods=["POST"])
 @token_required
 def get_issuances_from_student(ident):
     # requires read permissions on issuance
@@ -522,7 +522,7 @@ def get_issuances_from_student(ident):
 
     return jsonify(temp), 200
 
-@app.route("/badge/issue", methods=["POST"])
+@app.route("/api/badge/issue", methods=["POST"])
 @token_required
 def get_issuances():
     #if "r" not in fetch_permissions(g.current_user)["issuance"]:
@@ -536,7 +536,7 @@ def get_issuances():
 
     return jsonify(res), 200
 
-@app.route("/badge/issue/add", methods=["POST"])
+@app.route("/api/badge/issue/add", methods=["POST"])
 @token_required
 def issue_badge():
     # requires create permissions on issuance
@@ -552,7 +552,7 @@ def issue_badge():
 
     return jsonify({"msg": f"Successfully issued {params["badge"]} to {params["student"]} by {params["issuer"]} on {params["date"]}"}), 200
 
-@app.route("/badge/issue/update", methods=["POST"])
+@app.route("/api/badge/issue/update", methods=["POST"])
 @token_required
 def update_issuance():
     # requires update permissions on issuance
@@ -571,7 +571,7 @@ def update_issuance():
 
     return jsonify({"msg": f"Successfully updated issuance of {params["badge"]} to {params["student"]} by {params["issuer"]} to {params["date"]}"}), 200
 
-@app.route("/badge/issue/delete", methods=["POST"])
+@app.route("/api/badge/issue/delete", methods=["POST"])
 @token_required
 def delete_issuance():
     # requires delete permissions on issuance
@@ -591,7 +591,7 @@ def delete_issuance():
     return jsonify({"msg": f"Successfully deleted issuance of {params["badge"]} to {params["student"]} by {params["issuer"]}"}), 200
 
 # permission CRUD operations
-@app.route("/permission/<int:ident>", methods=["GET"])
+@app.route("/api/permission/<int:ident>", methods=["GET"])
 def get_permission(ident):
     res = fetch_permissions(ident)
 
@@ -602,4 +602,4 @@ if __name__ == "__main__":
     #       cloudflared tunnel --url http://localhost:3000
     # to run the Flask server:
     #       python3 main.py
-    app.run(port=8080)
+    app.run(port=8081)
